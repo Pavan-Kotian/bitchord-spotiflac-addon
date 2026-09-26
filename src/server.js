@@ -5,7 +5,7 @@ const PORT = Number(process.env.PORT || 8080);
 const RESOLVER_URL = String(process.env.SPOTIFLAC_RESOLVER_URL || '').replace(/\/$/, '');
 const API_KEY = process.env.SPOTIFLAC_RESOLVER_KEY || '';
 const NAME = process.env.ADDON_NAME || 'SpotiFLAC Lossless Bridge';
-const VERSION = process.env.ADDON_VERSION || '0.2.0';
+const VERSION = process.env.ADDON_VERSION || '0.3.0';
 
 const MANIFEST = {
   id: 'com.pavan.bitchord.spotiflac-lossless',
@@ -64,7 +64,7 @@ function normalizeTrack(t) {
 }
 function normalizeStream(s) {
   const codec = String(s.codec || s.format || '').toLowerCase();
-  const lossless = ['flac','alac','wav','pcm'].includes(codec);
+  const lossless = ['flac','alac','wav','pcm'].includes(codec) || codec.startsWith('pcm_');
   if (!s.url || !/^https?:\/\//i.test(s.url)) throw new Error('resolver returned no absolute media URL');
   if (!lossless && String(s.quality||'').toUpperCase().includes('LOSSLESS')) throw new Error('resolver overstated lossless quality');
   return {
