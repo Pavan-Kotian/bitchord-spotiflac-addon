@@ -1,86 +1,137 @@
-# BitChord SpotiFLAC Lossless Bridge
+# BitChord SpotiFLAC Qobuz Addon
 
-A BitChord addon implementing BitChord's `/manifest.json`, `/search`, and `/stream/{id}` contract while using a configurable SpotiFLAC-compatible resolver for provider resolution.
+This BitChord addon now embeds the Qobuz provider from the official SpotiFLAC Extension Store repository and hosts it through a small compatibility runtime.
 
-## Why a resolver?
+Upstream provider:
+https://github.com/spotiflacapp/SpotiFLAC-Extension/tree/main/sources/qobuz-web
 
-SpotiFLAC providers are JavaScript extensions executed inside the SpotiFLAC runtime. They use runtime services such as signed sessions and provider-specific APIs. This project deliberately does not pretend that a provider source file can be dropped into a normal Node server unchanged.
+The upstream Qobuz extension declares signed-session support and uses the SpotiFLAC runtime's `session.signedFetch()` API. This project implements the required signed-session protocol and exposes the provider through BitChord's HTTP addon contract.
 
-The bridge therefore keeps BitChord protocol handling separate from provider resolution. A resolver can be implemented with the authorized SpotiFLAC provider/runtime and expose the two small JSON endpoints required here.
+## Architecture
 
-## Resolver contract
-
-`GET /search?q=<query>&quality=lossless`
-
-Returns either an array of tracks or `{ "tracks": [...] }`.
-
-`GET /stream?id=<provider-id>&quality=lossless`
-
-Returns a stream object containing an absolute `https://` URL and accurate codec/container/quality metadata.
-
-## Lossless safety
-
-The bridge only marks a rendition as lossless when its codec is FLAC, ALAC, WAV, or PCM. It always sets `encrypted:false`; protected renditions are not exposed.
+```
+BitChord
+   |
+   +--> GET /manifest.json
+   +--> GET /search?q=...
+   +--> GET /stream/{id}
+            |
+            v
+   BitChord SpotiFLAC addon
+            |
+            v
+   Embedded Qobuz SpotiFLAC provider
+            |
+            +--> Qobuz metadata/search
+            |
+            +--> Zarz signed session
+            |
+            +--> Qobuz download-ticket resolution
+            |
+            v
+   Direct FLAC stream URL
+```
 
 ## Run
 
-```bash
-cp .env.example .env
-npm start
-```
-
-Then add the server root to BitChord.
-
-BitChord will call:
-
-- `/manifest.json`
-- `/search?q=...&quality=LOSSLESS`
-- `/stream/<encoded-id>?quality=LOSSLESS`
-
-
-## BitChord compatibility
-
-This bridge follows the current BitChord addon contract: `/manifest.json`, `/search`, and `/stream/{id}`. BitChord sends `quality` on search and stream requests and requires absolute playable URLs with accurate codec/transport metadata.
-
-The bridge intentionally does **not** implement provider authentication bypasses or scrape protected provider sessions. Set `SPOTIFLAC_RESOLVER_URL` to a resolver you control or are authorized to use.
-
-### Resolver contract
-
-- `GET /search?q=<query>&quality=<tier>` → `{ "tracks": [...] }`
-- `GET /stream?id=<id>&quality=<tier>` → stream object
-- Stream URL must be absolute `https://`/ `http://` and directly playable or explicitly declared as HLS/DASH.
-- For lossless, return FLAC, ALAC, WAV, or PCM and accurate sample rate/bit depth when known.
-- Return HTTP 404 for a genuine miss; the bridge translates it to a BitChord miss.
-- Return HTTP 429 with `Retry-After` when temporarily rate limited.
-
-
-## Fabricated test resolver
-
-This repository now includes `src/fake-resolver.js`. It is a synthetic provider used to validate the BitChord integration without contacting Qobuz, TIDAL, Deezer, Spotify, or another commercial catalogue.
-
-It exposes:
-
-- `GET /health`
-- `GET /search?q=...`
-- `GET /stream?id=...`
-- `GET /media/<id>.wav`
-
-The resolver generates short PCM/WAV tones at runtime and reports accurate sample rate and bit depth. These are test signals, not commercial music.
-
-### Local test
-
-Run both services with:
+### Docker Compose
 
 ```bash
+mkdir -p data
 docker compose up --build
 ```
 
-The addon listens on port 8080 and the fabricated resolver on port 8090.
+The addon listens on port `8080`.
 
-For BitChord running on another device, change `PUBLIC_BASE_URL` from `http://localhost:8090` to an address reachable by that device, or deploy the resolver behind HTTPS. BitChord requires absolute playable media URLs. citeturn0search0
+For LAN use, expose port 8080 from the host and use that host's address from BitChord.
 
-### Important
+## BitChord configuration
 
-The fabricated resolver is intentionally not a real music-provider resolver. The current SpotiFLAC Qobuz provider uses runtime services, signed/verified requests, and provider-specific access, so its source cannot simply be converted into an unauthenticated standalone endpoint. The upstream repository also documents that provider packages are executed as SpotiFLAC extensions. citeturn0search1turn0search2
+Use the addon server as the addon URL, not the raw GitHub `manifest.json` file.
 
-To connect a real catalogue, replace the fabricated resolver with a resolver backed by an account/API/provider that you are authorized to use.
+Example:
+
+```text
+http://192.168.1.50:8080
+```
+
+For internet-facing use, put the service behind HTTPS.
+
+## Signed-session authorization
+
+The Qobuz provider requires the signed session declared by the upstream provider manifest. The embedded runtime does not bypass that authentication.
+
+Start the flow:
+
+```text
+GET /auth/start
+```
+
+The response can contain:
+
+```json
+{
+  "authenticated": false,
+  "verificationRequired": true,
+  "authUrl": "https://..."
+}
+```
+
+Open the returned `authUrl` and complete the verification flow. The upstream mobile application receives a callback similar to:
+
+```text
+spotiflac://session-grant?grant=...&state=...
+```
+
+Submit the grant value to:
+
+```text
+GET /auth/complete?grant=YOUR_GRANT
+```
+
+Then verify:
+
+```text
+GET /auth/status
+```
+
+Once `authenticated` is true, BitChord search and stream resolution can use the Qobuz provider.
+
+## API
+
+```text
+GET /manifest.json
+GET /health
+GET /auth/start
+GET /auth/status
+GET /auth/complete?grant=...
+GET /search?q=...
+GET /stream/{id}?quality=lossless
+```
+
+The BitChord layer returns accurate FLAC metadata and does not log the returned stream URL.
+
+## Session security
+
+`data/qobuz-session.json` contains the signed-session secret. Treat it as credential material:
+
+- do not commit it;
+- do not publish it;
+- restrict filesystem permissions;
+- use HTTPS when the addon is reachable outside your LAN;
+- do not put the session JSON in a public Docker image.
+
+The server never exposes the session secret through the BitChord API.
+
+## Provider source
+
+The embedded Qobuz provider is copied from the upstream Apache-2.0 project at the version currently present in this repository. See `UPSTREAM-LICENSE.md`.
+
+## Test resolver
+
+`src/fake-resolver.js` is retained as a synthetic development fixture. It is not used by the normal addon and does not contact Qobuz.
+
+## Important limitation
+
+This addon reuses the upstream provider and implements its required signed-session runtime. It does not remove, bypass, or replace the provider's authentication/verification mechanism. A valid signed session is required for Qobuz operations that depend on it.
+
