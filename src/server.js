@@ -5,7 +5,7 @@ const PORT = Number(process.env.PORT || 8080);
 const RESOLVER_URL = String(process.env.SPOTIFLAC_RESOLVER_URL || '').replace(/\/$/, '');
 const API_KEY = process.env.SPOTIFLAC_RESOLVER_KEY || '';
 const NAME = process.env.ADDON_NAME || 'SpotiFLAC Lossless Bridge';
-const VERSION = process.env.ADDON_VERSION || '0.1.0';
+const VERSION = process.env.ADDON_VERSION || '0.2.0';
 
 const MANIFEST = {
   id: 'com.pavan.bitchord.spotiflac-lossless',
@@ -39,11 +39,15 @@ function resolverHeaders() {
   return API_KEY ? { 'authorization': `Bearer ${API_KEY}` } : {};
 }
 async function resolver(path, query={}) {
-  if (!RESOLVER_URL) throw new Error('SPOTIFLAC_RESOLVER_URL is not configured');
+  if (!RESOLVER_URL) throw new Error('resolver_not_configured');
   const u = new URL(RESOLVER_URL + path);
   for (const [k,v] of Object.entries(query)) if (v !== undefined && v !== '') u.searchParams.set(k, String(v));
   const r = await fetch(u, { headers: resolverHeaders(), signal: AbortSignal.timeout(15000) });
-  if (!r.ok) throw new Error(`resolver HTTP ${r.status}`);
+  if (r.status === 404) { const e = new Error('resolver_not_found'); e.code = 'NOT_FOUND'; throw e; }
+  if (r.status === 429) { const e = new Error('resolver_rate_limited'); e.code = 'RATE_LIMITED'; throw e; }
+  if (!r.ok) { const e = new Error(`resolver_http_${r.status}`); e.code = 'UPSTREAM_ERROR'; throw e; }
+  const type = r.headers.get('content-type') || '';
+  if (!type.toLowerCase().includes('json')) throw new Error('resolver_invalid_content_type');
   return r.json();
 }
 function normalizeTrack(t) {
@@ -54,7 +58,7 @@ function normalizeTrack(t) {
     album: String(t.album ?? t.album_name ?? ''),
     duration: Number(t.duration ?? t.duration_sec ?? (Number(t.duration_ms || 0) / 1000)),
     artworkURL: t.artworkURL || t.artwork_url || t.cover_url || undefined,
-    format: String(t.format || 'flac').toLowerCase(),
+    format: String(t.format || '').toLowerCase() || undefined,
     audioQuality: String(t.audioQuality || 'LOSSLESS').toUpperCase()
   };
 }
@@ -89,7 +93,7 @@ async function handle(req,res) {
       if (!q.trim()) return json(res,200,{tracks:[]});
       const data = await cached(`s:${quality}:${q.toLowerCase()}`, 60000, () => resolver('/search',{q,quality}));
       const rows = Array.isArray(data) ? data : (data.tracks || []);
-      return json(res,200,{tracks:rows.map(normalizeTrack).filter(x=>x.id&&x.title)});
+      return json(res,200,{tracks:rows.map(normalizeTrack).filter(x=>x.id&&x.title).slice(0,25)});
     }
     if (u.pathname.startsWith('/stream/')) {
       const id = decodeURIComponent(u.pathname.slice('/stream/'.length));
@@ -100,8 +104,9 @@ async function handle(req,res) {
     }
     return json(res,404,{error:'not_found'});
   } catch (e) {
-    const msg = String(e?.message || e);
-    if (msg.includes('not found') || msg.includes('404')) return json(res,404,{error:'track_not_found'});
+    if (e?.code === 'NOT_FOUND') return json(res,404,{error:'track_not_found'});
+    if (e?.code === 'RATE_LIMITED') return json(res,429,{error:'provider_rate_limited','retryAfter':30},{'retry-after':'30'});
+    if (e?.message === 'resolver_not_configured') return json(res,503,{error:'resolver_not_configured'});
     return json(res,502,{error:'provider_unavailable'});
   }
 }
