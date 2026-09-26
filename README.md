@@ -36,3 +36,19 @@ BitChord will call:
 - `/manifest.json`
 - `/search?q=...&quality=LOSSLESS`
 - `/stream/<encoded-id>?quality=LOSSLESS`
+
+
+## BitChord compatibility
+
+This bridge follows the current BitChord addon contract: `/manifest.json`, `/search`, and `/stream/{id}`. BitChord sends `quality` on search and stream requests and requires absolute playable URLs with accurate codec/transport metadata.
+
+The bridge intentionally does **not** implement provider authentication bypasses or scrape protected provider sessions. Set `SPOTIFLAC_RESOLVER_URL` to a resolver you control or are authorized to use.
+
+### Resolver contract
+
+- `GET /search?q=<query>&quality=<tier>` → `{ "tracks": [...] }`
+- `GET /stream?id=<id>&quality=<tier>` → stream object
+- Stream URL must be absolute `https://`/ `http://` and directly playable or explicitly declared as HLS/DASH.
+- For lossless, return FLAC, ALAC, WAV, or PCM and accurate sample rate/bit depth when known.
+- Return HTTP 404 for a genuine miss; the bridge translates it to a BitChord miss.
+- Return HTTP 429 with `Retry-After` when temporarily rate limited.
