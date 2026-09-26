@@ -1,5 +1,7 @@
 # BitChord SpotiFLAC Qobuz Addon
 
+**Important:** BitChord must be pointed at the **running addon server URL**, not the raw GitHub `manifest.json` URL. The raw manifest can be read by BitChord, but its normalized root is not a server and cannot answer `/search` or `/stream`.
+
 This BitChord addon now embeds the Qobuz provider from the official SpotiFLAC Extension Store repository and hosts it through a small compatibility runtime.
 
 Upstream provider:
@@ -47,15 +49,31 @@ For LAN use, expose port 8080 from the host and use that host's address from Bit
 
 ## BitChord configuration
 
-Use the addon server as the addon URL, not the raw GitHub `manifest.json` file.
+### Local network
 
-Example:
+Run the server on a machine reachable from the Android device and add its root URL in BitChord:
 
 ```text
 http://192.168.1.50:8080
 ```
 
-For internet-facing use, put the service behind HTTPS.
+Do **not** paste the raw GitHub `manifest.json` URL. BitChord uses the manifest to discover the addon root and then calls `/search` and `/stream/{id}`; a GitHub raw file cannot answer those routes.
+
+### Render deployment
+
+This repository includes `render.yaml`. Create a Render Blueprint from this repository and deploy the `bitchord-spotiflac-addon` web service. Render's persistent disk is mounted at `/data`, which keeps the Qobuz signed session across restarts. The service health check is `/health`.
+
+After deployment, use the generated HTTPS service URL in BitChord.
+
+### Docker / self-hosted
+
+```bash
+docker compose up --build
+```
+
+Then use the host's reachable URL in BitChord.
+
+For internet-facing use, always use HTTPS.
 
 ## Signed-session authorization
 
@@ -130,6 +148,12 @@ The embedded Qobuz provider is copied from the upstream Apache-2.0 project at th
 ## Test resolver
 
 `src/fake-resolver.js` is retained as a synthetic development fixture. It is not used by the normal addon and does not contact Qobuz.
+
+## Version 0.5.0 changes
+
+- Added a production Render Blueprint with persistent Qobuz session storage.
+- Documented the critical distinction between the live addon server URL and the raw GitHub manifest URL.
+- BitChord protocol remains the native `/manifest.json`, `/search`, and `/stream/{id}` contract.
 
 ## Important limitation
 
