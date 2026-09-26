@@ -1,9 +1,13 @@
 {
-  "name": "bitchord-spotiflac-lossless-addon",
-  "version": "0.3.0",
+  "name": "bitchord-spotiflac-qobuz-addon",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "engines": { "node": ">=20" },
-  "scripts": { "start": "node src/server.js", "resolver": "node src/fake-resolver.js", "test": "node --test" },
+  "scripts": {
+    "start": "node src/server.js",
+    "resolver": "node src/fake-resolver.js",
+    "test": "node --test"
+  },
   "dependencies": {}
 }
