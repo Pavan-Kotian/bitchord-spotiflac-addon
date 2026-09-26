@@ -1,0 +1,18 @@
+{
+  "id": "com.pavan.bitchord.spotiflac-lossless",
+  "name": "SpotiFLAC Lossless Bridge",
+  "version": "0.1.0",
+  "resources": ["search", "stream"],
+  "settings": [
+    {
+      "key": "quality",
+      "type": "select",
+      "default": "lossless",
+      "options": [
+        { "label": "Lossless", "value": "lossless" },
+        { "label": "High", "value": "high" },
+        { "label": "Low", "value": "low" }
+      ]
+    }
+  ]
+}
