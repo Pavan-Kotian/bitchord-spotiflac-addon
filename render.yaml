@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: bitchord-spotiflac-addon
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ADDON_NAME
+        value: SpotiFLAC Qobuz Lossless
+      - key: ADDON_VERSION
+        value: 0.5.0
+      - key: QOBUZ_APP_ID
+        value: "798273057"
+      - key: QOBUZ_COUNTRY_CODE
+        value: US
+      - key: QOBUZ_SESSION_FILE
+        value: /data/qobuz-session.json
+    disk:
+      name: qobuz-data
+      mountPath: /data
+      sizeGB: 1
