@@ -1,17 +1,29 @@
 {
   "id": "com.pavan.bitchord.spotiflac.qobuz",
   "name": "SpotiFLAC Qobuz Lossless",
-  "version": "0.4.0",
-  "resources": ["search", "stream"],
+  "version": "0.5.0",
+  "resources": [
+    "search",
+    "stream"
+  ],
   "settings": [
     {
       "key": "quality",
       "type": "select",
       "default": "lossless",
       "options": [
-        { "label": "Hi-Res Lossless", "value": "lossless" },
-        { "label": "Hi-Res", "value": "high" },
-        { "label": "Lossless", "value": "low" }
+        {
+          "label": "Hi-Res Lossless",
+          "value": "lossless"
+        },
+        {
+          "label": "Hi-Res",
+          "value": "high"
+        },
+        {
+          "label": "Lossless",
+          "value": "low"
+        }
       ]
     }
   ]
