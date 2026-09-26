@@ -52,3 +52,35 @@ The bridge intentionally does **not** implement provider authentication bypasses
 - For lossless, return FLAC, ALAC, WAV, or PCM and accurate sample rate/bit depth when known.
 - Return HTTP 404 for a genuine miss; the bridge translates it to a BitChord miss.
 - Return HTTP 429 with `Retry-After` when temporarily rate limited.
+
+
+## Fabricated test resolver
+
+This repository now includes `src/fake-resolver.js`. It is a synthetic provider used to validate the BitChord integration without contacting Qobuz, TIDAL, Deezer, Spotify, or another commercial catalogue.
+
+It exposes:
+
+- `GET /health`
+- `GET /search?q=...`
+- `GET /stream?id=...`
+- `GET /media/<id>.wav`
+
+The resolver generates short PCM/WAV tones at runtime and reports accurate sample rate and bit depth. These are test signals, not commercial music.
+
+### Local test
+
+Run both services with:
+
+```bash
+docker compose up --build
+```
+
+The addon listens on port 8080 and the fabricated resolver on port 8090.
+
+For BitChord running on another device, change `PUBLIC_BASE_URL` from `http://localhost:8090` to an address reachable by that device, or deploy the resolver behind HTTPS. BitChord requires absolute playable media URLs. citeturn0search0
+
+### Important
+
+The fabricated resolver is intentionally not a real music-provider resolver. The current SpotiFLAC Qobuz provider uses runtime services, signed/verified requests, and provider-specific access, so its source cannot simply be converted into an unauthenticated standalone endpoint. The upstream repository also documents that provider packages are executed as SpotiFLAC extensions. citeturn0search1turn0search2
+
+To connect a real catalogue, replace the fabricated resolver with a resolver backed by an account/API/provider that you are authorized to use.
