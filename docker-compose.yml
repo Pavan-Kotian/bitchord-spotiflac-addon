@@ -1,20 +1,13 @@
 services:
-  resolver:
-    build: .
-    command: node src/fake-resolver.js
-    environment:
-      RESOLVER_PORT: 8090
-      PUBLIC_BASE_URL: http://localhost:8090
-    ports:
-      - "8090:8090"
-
   addon:
     build: .
     environment:
       PORT: 8080
-      SPOTIFLAC_RESOLVER_URL: http://resolver:8090
-      ADDON_VERSION: 0.3.0
+      ADDON_VERSION: 0.4.0
+      QOBUZ_APP_ID: 798273057
+      QOBUZ_COUNTRY_CODE: US
+      QOBUZ_SESSION_FILE: /data/qobuz-session.json
+    volumes:
+      - ./data:/data
     ports:
       - "8080:8080"
-    depends_on:
-      - resolver
