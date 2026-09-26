@@ -4,7 +4,7 @@ import { SpotiFLACQobuzHost } from './spotiflac-qobuz-host.js';
 
 const PORT = Number(process.env.PORT || 8080);
 const NAME = process.env.ADDON_NAME || 'SpotiFLAC Qobuz Lossless';
-const VERSION = process.env.ADDON_VERSION || '0.4.0';
+const VERSION = process.env.ADDON_VERSION || '0.5.0';
 
 const MANIFEST = {
   id: 'com.pavan.bitchord.spotiflac.qobuz',
