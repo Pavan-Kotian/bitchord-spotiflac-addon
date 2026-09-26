@@ -59,9 +59,11 @@ http://192.168.1.50:8080
 
 Do **not** paste the raw GitHub `manifest.json` URL. BitChord uses the manifest to discover the addon root and then calls `/search` and `/stream/{id}`; a GitHub raw file cannot answer those routes.
 
-### Render deployment
+### Render deployment — free tier
 
-This repository includes `render.yaml`. Create a Render Blueprint from this repository and deploy the `bitchord-spotiflac-addon` web service. Render's persistent disk is mounted at `/data`, which keeps the Qobuz signed session across restarts. The service health check is `/health`.
+This repository includes `render.yaml` configured for Render's **Free** web-service tier. No persistent disk is used.
+
+The trade-off is important: Render Free services can spin down after inactivity, and their local filesystem is ephemeral. The Qobuz signed-session file can therefore disappear after a restart/spin-down, so you may need to repeat `/auth/start` and `/auth/complete` when that happens. Render documents these free-tier limitations. citeturn767556search0
 
 After deployment, use the generated HTTPS service URL in BitChord.
 
