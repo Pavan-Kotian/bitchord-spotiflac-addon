@@ -2,7 +2,7 @@ services:
   - type: web
     name: bitchord-spotiflac-addon
     runtime: docker
-    plan: starter
+    plan: free
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -15,8 +15,4 @@ services:
       - key: QOBUZ_COUNTRY_CODE
         value: US
       - key: QOBUZ_SESSION_FILE
-        value: /data/qobuz-session.json
-    disk:
-      name: qobuz-data
-      mountPath: /data
-      sizeGB: 1
+        value: /tmp/qobuz-session.json
