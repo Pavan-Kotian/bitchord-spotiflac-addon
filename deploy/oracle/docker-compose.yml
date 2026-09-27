@@ -12,37 +12,25 @@ services:
       QOBUZ_SESSION_FILE: /data/qobuz-session.json
       ENABLE_TIDAL: "true"
       TIDAL_API_URL: http://tidal:8000
-      ENABLE_AMAZON: "true"
-      AMAZON_API_URL: http://amazon:8130
-      AMAZON_API_TOKEN: ${AMAZON_API_TOKEN}
+      ENABLE_AMAZON: "false"
+      AMAZON_API_URL: ""
     volumes:
       - qobuz_data:/data
     expose:
       - "8080"
     depends_on:
       - tidal
-      - amazon
     restart: unless-stopped
 
   tidal:
     build:
       context: ./tidal
+    environment:
+      TOKEN_FILE: /data/token.json
     volumes:
-      - tidal_data:/app
+      - tidal_data:/data
     expose:
       - "8000"
-    restart: unless-stopped
-
-  amazon:
-    build:
-      context: ./amazon
-    environment:
-      AMZ_SESSIONS_FILE: /data/sessions.json
-      AMZ_TOKEN_TTL: "86400"
-    volumes:
-      - amazon_data:/data
-    expose:
-      - "8130"
     restart: unless-stopped
 
   caddy:
@@ -64,6 +52,5 @@ services:
 volumes:
   qobuz_data:
   tidal_data:
-  amazon_data:
   caddy_data:
   caddy_config:
