@@ -7,12 +7,22 @@ services:
     autoDeploy: true
     envVars:
       - key: ADDON_NAME
-        value: SpotiFLAC Qobuz Lossless
+        value: SpotiFLAC Multi-Source Lossless
       - key: ADDON_VERSION
-        value: 0.5.0
+        value: 0.6.0
       - key: QOBUZ_APP_ID
         value: "798273057"
       - key: QOBUZ_COUNTRY_CODE
         value: US
       - key: QOBUZ_SESSION_FILE
-        value: /tmp/qobuz-session.json
+        value: /data/qobuz-session.json
+      - key: ENABLE_TIDAL
+        value: "true"
+      - key: ENABLE_AMAZON
+        value: "true"
+      - key: TIDAL_API_URL
+        sync: false
+      - key: AMAZON_API_URL
+        sync: false
+      - key: AMAZON_API_TOKEN
+        sync: false
