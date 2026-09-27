@@ -1,7 +1,7 @@
 const DEFAULT_TIMEOUT = 12000;
 
 function baseUrl() {
-  return String(process.env.AMAZON_API_URL || '').trim().replace(/\\/$/, '');
+  return String(process.env.AMAZON_API_URL || '').trim().replace(/\/$/, '');
 }
 
 function token() {
@@ -64,7 +64,7 @@ export async function amazonResolveStream(id) {
 
   // Only pass through an explicit, non-DRM URL. Do not reconstruct segmented
   // media or handle PSSH/Widevine material in this addon.
-  const candidate = streams.find(s => typeof s?.url === 'string' && /^https?:\\/\\//.test(s.url) && !s.pssh);
+  const candidate = streams.find(s => typeof s?.url === 'string' && /^https?:\/\//.test(s.url) && !s.pssh);
   if (!candidate) throw new Error('Amazon stream is not an explicit non-DRM playable URL');
 
   return {
