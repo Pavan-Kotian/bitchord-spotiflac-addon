@@ -1,7 +1,7 @@
 const DEFAULT_TIMEOUT = 12000;
 
 function baseUrl() {
-  return String(process.env.TIDAL_API_URL || '').trim().replace(/\\/$/, '');
+  return String(process.env.TIDAL_API_URL || '').trim().replace(/\/$/, '');
 }
 
 async function request(path, params = {}) {
@@ -83,7 +83,7 @@ export async function tidalResolveStream(id, quality = 'lossless') {
 
   let decoded = decodeManifest(track.manifest);
   let url = decoded?.urls?.[0];
-  if (!url && typeof track.manifest === 'string' && /^https?:\\/\\//.test(track.manifest)) url = track.manifest;
+  if (!url && typeof track.manifest === 'string' && /^https?:\/\//.test(track.manifest)) url = track.manifest;
   if (!url) throw new Error('Tidal response did not contain a playable URL');
 
   const codec = decoded?.codecs || decoded?.codec || (track.audioQuality === 'LOSSLESS' ? 'flac' : 'flac');
