@@ -1,163 +1,94 @@
-# BitChord SpotiFLAC Qobuz Addon
+# BitChord SpotiFLAC Multi-Source Addon
 
-**Important:** BitChord must be pointed at the **running addon server URL**, not the raw GitHub `manifest.json` URL. The raw manifest can be read by BitChord, but its normalized root is not a server and cannot answer `/search` or `/stream`.
+A single BitChord-compatible HTTP addon aggregating Qobuz, Tidal and Amazon Music metadata behind one search endpoint and routing streams to the correct provider.
 
-This BitChord addon now embeds the Qobuz provider from the official SpotiFLAC Extension Store repository and hosts it through a small compatibility runtime.
+## Provider status
 
-Upstream provider:
-https://github.com/spotiflacapp/SpotiFLAC-Extension/tree/main/sources/qobuz-web
+| Provider | Search | Stream | Authentication |
+|---|---|---|---|
+| Qobuz | Yes | Yes | SpotiFLAC signed session |
+| Tidal | Yes | Yes when the external API returns a playable non-DRM FLAC URL | Self-hosted hifi-api |
+| Amazon Music | Yes | Only explicit non-DRM URLs | Self-hosted Amazon API |
 
-The upstream Qobuz extension declares signed-session support and uses the SpotiFLAC runtime's `session.signedFetch()` API. This project implements the required signed-session protocol and exposes the provider through BitChord's HTTP addon contract.
+Provider IDs are namespaced: qobuz:12345, tidal:12345, amazon:B0....
+
+The addon does not implement DRM key extraction, Widevine decryption, or DRM bypass. Amazon responses requiring DRM processing are rejected rather than converted into a playable stream.
 
 ## Architecture
 
-```
-BitChord
-   |
-   +--> GET /manifest.json
-   +--> GET /search?q=...
-   +--> GET /stream/{id}
-            |
-            v
-   BitChord SpotiFLAC addon
-            |
-            v
-   Embedded Qobuz SpotiFLAC provider
-            |
-            +--> Qobuz metadata/search
-            |
-            +--> Zarz signed session
-            |
-            +--> Qobuz download-ticket resolution
-            |
-            v
-   Direct FLAC stream URL
-```
+BitChord/Eclipse client -> /manifest.json, /search, /stream/{id} -> this addon -> Qobuz / Tidal HTTP / Amazon HTTP -> normalized BitChord response.
 
 ## Run
 
-### Docker Compose
+Use Docker Compose as before:
 
-```bash
-mkdir -p data
-docker compose up --build
-```
+    docker compose up --build
 
-The addon listens on port `8080`.
+The addon listens on port 8080.
 
-For LAN use, expose port 8080 from the host and use that host's address from BitChord.
+Configure .env from .env.example. TIDAL_API_URL points to a separately hosted binimum/hifi-api instance. AMAZON_API_URL points to a separately hosted itsmeadarsh2008/amazon-music-api instance, and AMAZON_API_TOKEN is its bearer token.
 
-## BitChord configuration
+The Python backends remain separate intentionally; the Node addon stays lightweight and does not copy their runtimes.
 
-### Local network
+## BitChord
 
-Run the server on a machine reachable from the Android device and add its root URL in BitChord:
+Point BitChord at the running addon server, not the raw GitHub manifest.
 
-```text
-http://192.168.1.50:8080
-```
+    https://your-addon.example.com
 
-Do **not** paste the raw GitHub `manifest.json` URL. BitChord uses the manifest to discover the addon root and then calls `/search` and `/stream/{id}`; a GitHub raw file cannot answer those routes.
+Endpoints:
 
-### Render deployment — free tier
+    GET /manifest.json
+    GET /health
+    GET /auth/start
+    GET /auth/status
+    GET /auth/complete?grant=...
+    GET /search?q=...
+    GET /stream/{id}?quality=lossless
 
-This repository includes `render.yaml` configured for Render's **Free** web-service tier. No persistent disk is used.
+CORS and OPTIONS are supported.
 
-The trade-off is important: Render Free services can spin down after inactivity, and their local filesystem is ephemeral. The Qobuz signed-session file can therefore disappear after a restart/spin-down, so you may need to repeat `/auth/start` and `/auth/complete` when that happens. Render documents these free-tier limitations. citeturn767556search0
+## Qobuz
 
-After deployment, use the generated HTTPS service URL in BitChord.
+Qobuz keeps the existing signed-session flow. A valid signed session is required; provider authentication is not bypassed.
 
-### Docker / self-hosted
+## Tidal
 
-```bash
-docker compose up --build
-```
+Run binimum/hifi-api separately with a valid Tidal account and set TIDAL_API_URL. The adapter uses its documented /search/ and /track/ endpoints and returns the explicit playback URL contained in the returned manifest.
 
-Then use the host's reachable URL in BitChord.
+The Tidal project documents one in-flight playback request per playback credential and queues requests when credentials are occupied.
 
-For internet-facing use, always use HTTPS.
+## Amazon Music
 
-## Signed-session authorization
+Run itsmeadarsh2008/amazon-music-api separately and set AMAZON_API_URL plus AMAZON_API_TOKEN. The adapter uses /search and /stream_urls.
 
-The Qobuz provider requires the signed session declared by the upstream provider manifest. The embedded runtime does not bypass that authentication.
+Only an explicit HTTPS stream URL with no DRM marker is passed through. The addon does not call /widevine_key, reconstruct DRM segments, decrypt protected media, or transcode protected content.
 
-Start the flow:
+Therefore Amazon metadata/search can work even when its current backend cannot expose a direct non-DRM playback URL. That behavior is deliberate.
 
-```text
-GET /auth/start
-```
+## Health
 
-The response can contain:
+GET /health reports each provider independently so you can see what is configured and reachable before troubleshooting BitChord.
 
-```json
-{
-  "authenticated": false,
-  "verificationRequired": true,
-  "authUrl": "https://..."
-}
-```
+## Security
 
-Open the returned `authUrl` and complete the verification flow. The upstream mobile application receives a callback similar to:
+- Keep Qobuz session files private.
+- Keep Amazon bearer tokens private.
+- Prefer HTTPS for internet-facing deployments.
+- Do not expose Tidal/Amazon credential files or backend administration publicly.
+- Do not commit .env, tokens, cookies, session files, or captured provider responses.
 
-```text
-spotiflac://session-grant?grant=...&state=...
-```
+## Upstream projects
 
-Submit the grant value to:
+- Qobuz: SpotiFLAC Extension qobuz-web provider.
+- Tidal: binimum/hifi-api.
+- Amazon Music: itsmeadarsh2008/amazon-music-api.
 
-```text
-GET /auth/complete?grant=YOUR_GRANT
-```
+## Version 0.6.0
 
-Then verify:
-
-```text
-GET /auth/status
-```
-
-Once `authenticated` is true, BitChord search and stream resolution can use the Qobuz provider.
-
-## API
-
-```text
-GET /manifest.json
-GET /health
-GET /auth/start
-GET /auth/status
-GET /auth/complete?grant=...
-GET /search?q=...
-GET /stream/{id}?quality=lossless
-```
-
-The BitChord layer returns accurate FLAC metadata and does not log the returned stream URL.
-
-## Session security
-
-`data/qobuz-session.json` contains the signed-session secret. Treat it as credential material:
-
-- do not commit it;
-- do not publish it;
-- restrict filesystem permissions;
-- use HTTPS when the addon is reachable outside your LAN;
-- do not put the session JSON in a public Docker image.
-
-The server never exposes the session secret through the BitChord API.
-
-## Provider source
-
-The embedded Qobuz provider is copied from the upstream Apache-2.0 project at the version currently present in this repository. See `UPSTREAM-LICENSE.md`.
-
-## Test resolver
-
-`src/fake-resolver.js` is retained as a synthetic development fixture. It is not used by the normal addon and does not contact Qobuz.
-
-## Version 0.5.0 changes
-
-- Added a production Render Blueprint with persistent Qobuz session storage.
-- Documented the critical distinction between the live addon server URL and the raw GitHub manifest URL.
-- BitChord protocol remains the native `/manifest.json`, `/search`, and `/stream/{id}` contract.
-
-## Important limitation
-
-This addon reuses the upstream provider and implements its required signed-session runtime. It does not remove, bypass, or replace the provider's authentication/verification mechanism. A valid signed session is required for Qobuz operations that depend on it.
-
+- Added external Tidal and Amazon provider adapters.
+- Added namespaced provider IDs.
+- Added merged multi-provider search.
+- Added provider health reporting.
+- Added CORS and OPTIONS handling.
+- Kept the existing Qobuz signed-session implementation intact.
